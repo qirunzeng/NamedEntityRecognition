@@ -241,5 +241,3 @@ This project successfully:
 * Provided **insightful analysis** of errors and improvements
 
 The **BiLSTM-CRF + Word + Char** model achieves the best performance across all evaluations, outperforming the baseline both quantitatively and qualitatively.
-
-This report meets all rubric criteria at the highest standard.
