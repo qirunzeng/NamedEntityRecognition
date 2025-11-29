@@ -21,13 +21,13 @@ os.makedirs(FIG_DIR, exist_ok=True)
 os.makedirs(RESULT_DIR, exist_ok=True)
 
 
-# =========================
-# 1. 数据读取与预处理
-# =========================
+"""
+>>> 1. 数据读取与预处理
+"""
 
 def read_conll_file(path: str) -> Tuple[List[List[str]], List[List[str]]]:
     """
-    读取 CoNLL 格式：token tag，句子之间空行
+    >>> 读取 CoNLL 格式：token tag，句子之间空行
     """
     sentences, tags = [], []
     cur_tokens, cur_tags = [], []
@@ -123,11 +123,11 @@ class NERDataset(Dataset):
 
 def collate_fn(batch):
     """
-    返回:
-        padded_words: (B, T)
-        padded_tags:  (B, T)
-        lengths:      (B,)
-        padded_chars: (B, T, C_max) 或 None
+    >>> Returns:
+        - padded_words: (B, T)
+        - padded_tags:  (B, T)
+        - lengths:      (B,)
+        - padded_chars: (B, T, C_max) 或 None
     """
     batch_word_ids, batch_tag_ids, batch_char_ids = zip(*batch)
     lengths = torch.tensor([len(x) for x in batch_word_ids], dtype=torch.long)
@@ -164,13 +164,12 @@ def collate_fn(batch):
     return padded_words, padded_tags, lengths, padded_chars
 
 
-# =========================
-# 2. 模型定义
-# =========================
-
+"""
+>>> 2. 模型定义
+"""
 class BiLSTMTagger(nn.Module):
     """
-    baseline：BiLSTM + softmax
+    >>> baseline：BiLSTM + softmax
     """
     def __init__(self, vocab_size, tagset_size,
                  embedding_dim=100, hidden_dim=256,
@@ -221,7 +220,7 @@ class BiLSTMTagger(nn.Module):
 
 class BiLSTM_CRF(nn.Module):
     """
-    高级模型：BiLSTM + CRF，可选 char 特征
+    >>> 高级模型：BiLSTM + CRF，可选 char 特征
     """
     def __init__(self, vocab_size, tagset_size,
                  embedding_dim=100, hidden_dim=256,
@@ -373,12 +372,13 @@ class BiLSTM_CRF(nn.Module):
         return self._viterbi_decode(emissions, mask)
 
 
-# =========================
-# 3. 训练 / 评估 / 可视化
-# =========================
-
+"""
+>>> 3. 训练 / 评估 / 可视化
+"""
 def analyze_data(train_sents, train_tags):
-    """数据探索：句长分布 + 标签频率"""
+    """
+    >>> 数据探索：句长分布 + 标签频率
+    """
     lengths = [len(s) for s in train_sents]
 
     plt.figure()
@@ -479,7 +479,7 @@ def evaluate(model, dataloader, model_type="crf"):
 
 def classification_stats(all_gold, all_pred, id2tag, save_path_txt: str):
     """
-    输出详细分类报告 + 返回每个类别的 F1
+    >>> 输出详细分类报告 + 返回每个类别的 F1
     """
     gold_labels = [id2tag[g] for g in all_gold]
     pred_labels = [id2tag[p] for p in all_pred]
@@ -570,12 +570,13 @@ def train_and_evaluate_one_model(
     num_epochs: int = 10,
 ):
     """
-    训练 + 评估一个模型，返回：
+    >>> 训练 + 评估一个模型
+    >>> Returns:
         - train_losses
         - dev_accuracies
         - test_acc
         - per-class F1
-    并自动保存曲线图 & 报告
+    >>> 保存曲线图 & 报告
     """
     print(f"\n====================")
     print(f"Training model: {model_name}")
@@ -681,58 +682,7 @@ def train_and_evaluate_one_model(
     }
 
 
-# def cross_validate(sentences, tags, word2id, tag2id, k=5):
-#     print(f"\n===== Running {k}-fold Cross Validation =====")
-#     kf = KFold(n_splits=k, shuffle=True, random_state=42)
-
-#     fold_results = []
-#     fold_id = 1
-
-#     for train_index, val_index in kf.split(sentences):
-#         print(f"\n--- Fold {fold_id} ---")
-
-#         train_sents = [sentences[i] for i in train_index]
-#         train_tags  = [tags[i] for i in train_index]
-
-#         val_sents = [sentences[i] for i in val_index]
-#         val_tags  = [tags[i] for i in val_index]
-
-#         train_dataset = NERDataset(train_sents, train_tags, word2id, tag2id)
-#         val_dataset   = NERDataset(val_sents, val_tags, word2id, tag2id)
-
-#         train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True, collate_fn=collate_fn)
-#         val_loader   = DataLoader(val_dataset, batch_size=32, shuffle=False, collate_fn=collate_fn)
-
-#         model = BiLSTM_CRF(
-#             vocab_size=len(word2id),
-#             tagset_size=len(tag2id),
-#             embedding_dim=100,
-#             hidden_dim=256,
-#             pad_idx=word2id["<PAD>"]
-#         ).to(DEVICE)
-
-#         optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
-
-#         for epoch in range(3):  # 每个 fold 跑 3 个 epoch 就够
-#             train_loss = train_one_epoch(model, train_loader, optimizer)
-#             dev_acc = evaluate(model, val_loader)
-#             print(f"Fold {fold_id} | Epoch {epoch+1} | Loss={train_loss:.4f} | Val Acc={dev_acc:.4f}")
-
-#         fold_results.append(dev_acc)
-#         fold_id += 1
-
-#     print("\n===== Cross Validation Summary =====")
-#     print("Fold Accuracies:", fold_results)
-#     print("Mean Accuracy:", sum(fold_results) / k)
-
-#     return sum(fold_results) / k
-
-# =========================
-# 4. 主流程：多模型训练 + 对比图
-# =========================
-
 def main():
-    # 1. 读数据
     train_path = os.path.join(DATA_DIR, "train.txt")
     dev_path = os.path.join(DATA_DIR, "dev.txt")
     test_path = os.path.join(DATA_DIR, "test.txt")
@@ -744,7 +694,7 @@ def main():
     # 数据探索图：句长和标签频率
     analyze_data(train_sents, train_tags)
 
-    # 2. vocab
+    # vocab
     word2id, id2word = build_vocab(train_sents, min_freq=1)
     tag2id, id2tag = build_tag_vocab(train_tags)
     char2id, id2char = build_char_vocab(train_sents)
@@ -753,8 +703,8 @@ def main():
     print("Tag size:", len(tag2id))
     print("Char vocab size:", len(char2id))
 
-    # ========= 2.5 在训练集上做 k-fold cross-validation（踩 rubric 那一条） =========
-    # 使用 CRF + char 的模型做 5 折交叉验证，用来评估和调参
+    # ========= k-fold cross-validation =========
+    #        使用 CRF + char 的模型做 5 折交叉验证
     k = 5
     kf = KFold(n_splits=k, shuffle=True, random_state=42)
     cv_fold_accs = []
@@ -782,7 +732,6 @@ def main():
             fold_val_dataset, batch_size=32, shuffle=False, collate_fn=collate_fn
         )
 
-        # 这里用和最终高级模型同样的结构：BiLSTM + CRF + char
         fold_model = BiLSTM_CRF(
             vocab_size=len(word2id),
             tagset_size=len(tag2id),
@@ -797,7 +746,6 @@ def main():
         fold_optimizer = torch.optim.Adam(fold_model.parameters(), lr=0.001)
 
         best_fold_acc = 0.0
-        # 每个 fold 跑少一点 epoch，主要目的是“调参 + 展示正确使用 CV”
         for epoch in range(1, 4):
             fold_train_loss = train_one_epoch(
                 fold_model, fold_train_loader, fold_optimizer, model_type="crf"
@@ -818,9 +766,9 @@ def main():
     print("Fold best accuracies:", [f"{a:.4f}" for a in cv_fold_accs])
     print(f"Mean CV accuracy: {mean_cv_acc:.4f}")
     print("====================================\n")
-    # ======== cross-validation 结束，下面是原来的正式实验流程 ========
+    # ========= End of CV =========
 
-    # 3. Dataset & DataLoader（注意：为了公平比较，两个模型用同样的数据）
+    # Dataset & DataLoader
     def make_loader(use_char: bool, split: str):
         sents = {"train": train_sents, "dev": dev_sents, "test": test_sents}[split]
         tgs = {"train": train_tags, "dev": dev_tags, "test": test_tags}[split]
@@ -838,7 +786,7 @@ def main():
             collate_fn=collate_fn,
         )
 
-    # 4. 定义两种模型配置
+    # Define model configurations to train
     configs = [
         # baseline：只用 word，BiLSTM + softmax
         {
@@ -856,7 +804,7 @@ def main():
 
     results = {}
 
-    # 5. 依次训练两种模型
+    # Train and evaluate each model
     for cfg in configs:
         train_loader = make_loader(cfg["use_char"], "train")
         dev_loader = make_loader(cfg["use_char"], "dev")
@@ -877,7 +825,7 @@ def main():
         )
         results[cfg["name"]] = res
 
-    # 6. 对比图：dev accuracy
+    # Dev 准确率对比图
     plt.figure()
     epochs = list(range(1, 11))
     for cfg in configs:
@@ -892,7 +840,7 @@ def main():
     plt.close()
     print("[Compare] Saved dev_acc_compare.png")
 
-    # 7. 对比图：每个标签 F1
+    # Per-tag F1 对比图
     base_labels = results[configs[0]["name"]]["labels_sorted"]
     x = range(len(base_labels))
     width = 0.35
@@ -917,8 +865,7 @@ def main():
     plt.close()
     print("[Compare] Saved f1_compare.png")
 
-    # 8. 在终端打印一个 summary，方便写报告
-    print("\n==== FINAL SUMMARY ====")
+    print("\n==== SUMMARY ====")
     print(f"  Mean CV acc (CRF+char, train set only): {mean_cv_acc:.4f}")
     for cfg in configs:
         name = cfg["name"]
