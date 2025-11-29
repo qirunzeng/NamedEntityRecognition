@@ -5,7 +5,7 @@ print(raw_datasets)
 
 def write_split(filename: str, split_name: str):
     """
-    CoNLL-2003 format:
+    >>> CoNLL-2003 format:
     """
     with open(filename, "w", encoding="utf-8") as f:
         for example in raw_datasets[split_name]:
