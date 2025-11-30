@@ -12,9 +12,9 @@ DATA_DIR = "./data"
 RESULT_DIR = "./results"
 
 
-# ======================
-# 1. Data utilities
-# ======================
+"""
+>>> Data utilities
+"""
 
 def read_conll_file(path: str) -> Tuple[List[List[str]], List[List[str]]]:
     sentences = []
@@ -146,12 +146,12 @@ def collate_fn(batch):
     return padded_words, padded_tags, lengths, padded_chars
 
 
-# ======================
-# 2. Models
-# ======================
+"""
+>>> Models
+"""
 
 class BiLSTMTagger(nn.Module):
-    """BiLSTM + softmax model (baseline)"""
+    # BiLSTM + softmax model (baseline)
 
     def __init__(self, vocab_size, tagset_size,
                  embedding_dim=100, hidden_dim=256,
@@ -203,7 +203,7 @@ class BiLSTMTagger(nn.Module):
 
 
 class BiLSTM_CRF(nn.Module):
-    """BiLSTM + CRF, with optional char embeddings"""
+    # BiLSTM + CRF, with optional char embeddings
 
     def __init__(self, vocab_size, tagset_size,
                  embedding_dim=100, hidden_dim=256,
@@ -356,10 +356,9 @@ class BiLSTM_CRF(nn.Module):
         return self._viterbi_decode(emissions, mask)
 
 
-# ======================
-# 3. Evaluation & Inference helpers
-# ======================
-
+"""
+>>> Evaluation & Inference helpers
+"""
 def evaluate(model, dataloader, model_type="crf"):
     model.eval()
     correct = 0
@@ -440,10 +439,6 @@ def predict_sentence(model, sentence: str,
     tags = [id2tag[int(i)] for i in tag_ids]
     return list(zip(words, tags))
 
-
-# ======================
-# 4. Main: load checkpoints and run
-# ======================
 
 def main():
     # 1. read data and rebuild vocab
