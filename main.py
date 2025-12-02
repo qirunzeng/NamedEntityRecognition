@@ -20,14 +20,9 @@ RESULT_DIR = "./results"
 os.makedirs(FIG_DIR, exist_ok=True)
 os.makedirs(RESULT_DIR, exist_ok=True)
 
-
-"""
->>> 1. 数据读取与预处理
-"""
-
 def read_conll_file(path: str) -> Tuple[List[List[str]], List[List[str]]]:
     """
-    >>> 读取 CoNLL 格式：token tag，句子之间空行
+    >>> CoNLL 格式：token tag，句子之间空行
     """
     sentences, tags = [], []
     cur_tokens, cur_tags = [], []
@@ -94,7 +89,7 @@ class NERDataset(Dataset):
         self.tags = tags
         self.word2id = word2id
         self.tag2id = tag2id
-        self.char2id = char2id  # None 表示不用 char 特征
+        self.char2id = char2id
 
     def __len__(self):
         return len(self.sentences)
@@ -127,7 +122,7 @@ def collate_fn(batch):
         - padded_words: (B, T)
         - padded_tags:  (B, T)
         - lengths:      (B,)
-        - padded_chars: (B, T, C_max) 或 None
+        - padded_chars: (B, T, C_max) or None
     """
     batch_word_ids, batch_tag_ids, batch_char_ids = zip(*batch)
     lengths = torch.tensor([len(x) for x in batch_word_ids], dtype=torch.long)
@@ -164,9 +159,6 @@ def collate_fn(batch):
     return padded_words, padded_tags, lengths, padded_chars
 
 
-"""
->>> 2. 模型定义
-"""
 class BiLSTMTagger(nn.Module):
     """
     >>> baseline：BiLSTM + softmax
@@ -220,7 +212,7 @@ class BiLSTMTagger(nn.Module):
 
 class BiLSTM_CRF(nn.Module):
     """
-    >>> 高级模型：BiLSTM + CRF，可选 char 特征
+    >>> BiLSTM + CRF
     """
     def __init__(self, vocab_size, tagset_size,
                  embedding_dim=100, hidden_dim=256,
@@ -373,7 +365,7 @@ class BiLSTM_CRF(nn.Module):
 
 
 """
->>> 3. 训练 / 评估 / 可视化
+>>> 训练 / 评估 / 可视化
 """
 def analyze_data(train_sents, train_tags):
     """
@@ -478,13 +470,9 @@ def evaluate(model, dataloader, model_type="crf"):
 
 
 def classification_stats(all_gold, all_pred, id2tag, save_path_txt: str):
-    """
-    >>> 输出详细分类报告 + 返回每个类别的 F1
-    """
     gold_labels = [id2tag[g] for g in all_gold]
     pred_labels = [id2tag[p] for p in all_pred]
 
-    # overall report
     report = classification_report(gold_labels, pred_labels, digits=4)
     with open(save_path_txt, "w", encoding="utf-8") as f:
         f.write(report)
@@ -500,7 +488,7 @@ def classification_stats(all_gold, all_pred, id2tag, save_path_txt: str):
 
 def visualize_embeddings_pca(model, dataloader, id2tag, model_name: str, model_type="crf"):
     """
-    用 PCA 在 2D 上可视化 token 表示（DimRed）
+    >>> DimRed
     """
     model.eval()
     all_vecs = []
@@ -569,15 +557,6 @@ def train_and_evaluate_one_model(
     id2tag,
     num_epochs: int = 10,
 ):
-    """
-    >>> 训练 + 评估一个模型
-    >>> Returns:
-        - train_losses
-        - dev_accuracies
-        - test_acc
-        - per-class F1
-    >>> 保存曲线图 & 报告
-    """
     print(f"\n====================")
     print(f"Training model: {model_name}")
     print(f"Type={model_type}, use_char={use_char}")
@@ -637,7 +616,6 @@ def train_and_evaluate_one_model(
             )
             print(f"  -> New best model saved to {best_ckpt_path}")
 
-    # 训练曲线图（单模型）
     epochs = list(range(1, num_epochs + 1))
 
     plt.figure()
@@ -660,7 +638,6 @@ def train_and_evaluate_one_model(
 
     print(f"[{model_name}] Saved individual loss/dev curves.")
 
-    # 用最佳模型在 test 上评估 + 分类报告
     ckpt = torch.load(best_ckpt_path, map_location=DEVICE)
     model.load_state_dict(ckpt["model_state_dict"])
 
@@ -670,7 +647,6 @@ def train_and_evaluate_one_model(
     report_path = os.path.join(RESULT_DIR, f"classification_report_{model_name}.txt")
     labels_sorted, f1s = classification_stats(all_gold, all_pred, id2tag, report_path)
 
-    # PCA 降维可视化
     visualize_embeddings_pca(model, dev_loader, id2tag, model_name, model_type=model_type)
 
     return {
@@ -691,10 +667,8 @@ def main():
     dev_sents, dev_tags = read_conll_file(dev_path)
     test_sents, test_tags = read_conll_file(test_path)
 
-    # 数据探索图：句长和标签频率
     analyze_data(train_sents, train_tags)
 
-    # vocab
     word2id, id2word = build_vocab(train_sents, min_freq=1)
     tag2id, id2tag = build_tag_vocab(train_tags)
     char2id, id2char = build_char_vocab(train_sents)
@@ -703,8 +677,7 @@ def main():
     print("Tag size:", len(tag2id))
     print("Char vocab size:", len(char2id))
 
-    # ========= k-fold cross-validation =========
-    #        使用 CRF + char 的模型做 5 折交叉验证
+    # ========= 5-fold cross-validation =========
     k = 5
     kf = KFold(n_splits=k, shuffle=True, random_state=42)
     cv_fold_accs = []
@@ -766,7 +739,6 @@ def main():
     print("Fold best accuracies:", [f"{a:.4f}" for a in cv_fold_accs])
     print(f"Mean CV accuracy: {mean_cv_acc:.4f}")
     print("====================================\n")
-    # ========= End of CV =========
 
     # Dataset & DataLoader
     def make_loader(use_char: bool, split: str):
@@ -788,13 +760,13 @@ def main():
 
     # Define model configurations to train
     configs = [
-        # baseline：只用 word，BiLSTM + softmax
+        # 只用 word，BiLSTM + softmax
         {
             "name": "bilstm_softmax_word",
             "model_type": "softmax",
             "use_char": False,
         },
-        # 高级：word + char，BiLSTM + CRF
+        # word + char，BiLSTM + CRF
         {
             "name": "bilstm_crf_word_char",
             "model_type": "crf",

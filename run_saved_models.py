@@ -11,11 +11,6 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 DATA_DIR = "./data"
 RESULT_DIR = "./results"
 
-
-"""
->>> Data utilities
-"""
-
 def read_conll_file(path: str) -> Tuple[List[List[str]], List[List[str]]]:
     sentences = []
     tags = []
@@ -151,8 +146,7 @@ def collate_fn(batch):
 """
 
 class BiLSTMTagger(nn.Module):
-    # BiLSTM + softmax model (baseline)
-
+    # BiLSTM + softmax model
     def __init__(self, vocab_size, tagset_size,
                  embedding_dim=100, hidden_dim=256,
                  pad_idx=0, char_vocab_size=None,
@@ -203,8 +197,7 @@ class BiLSTMTagger(nn.Module):
 
 
 class BiLSTM_CRF(nn.Module):
-    # BiLSTM + CRF, with optional char embeddings
-
+    # BiLSTM + CRF
     def __init__(self, vocab_size, tagset_size,
                  embedding_dim=100, hidden_dim=256,
                  pad_idx=0, char_vocab_size=None,
@@ -356,9 +349,6 @@ class BiLSTM_CRF(nn.Module):
         return self._viterbi_decode(emissions, mask)
 
 
-"""
->>> Evaluation & Inference helpers
-"""
 def evaluate(model, dataloader, model_type="crf"):
     model.eval()
     correct = 0
@@ -441,7 +431,7 @@ def predict_sentence(model, sentence: str,
 
 
 def main():
-    # 1. read data and rebuild vocab
+    # read data and rebuild vocab
     train_sents, train_tags = read_conll_file(os.path.join(DATA_DIR, "train.txt"))
     dev_sents, dev_tags = read_conll_file(os.path.join(DATA_DIR, "dev.txt"))
     test_sents, test_tags = read_conll_file(os.path.join(DATA_DIR, "test.txt"))
@@ -454,7 +444,7 @@ def main():
     print("Tag size:", len(tag2id))
     print("Char vocab size:", len(char2id))
 
-    # 2. build datasets & dataloaders
+    # build datasets & dataloaders
     def make_loader(use_char: bool, split: str):
         sents = {"train": train_sents, "dev": dev_sents, "test": test_sents}[split]
         tgs = {"train": train_tags, "dev": dev_tags, "test": test_tags}[split]
@@ -470,7 +460,7 @@ def main():
     test_loader_word_only = make_loader(use_char=False, split="test")
     test_loader_word_char = make_loader(use_char=True, split="test")
 
-    # 3. load softmax model
+    # load softmax model
     softmax_ckpt_path = os.path.join(RESULT_DIR, "bilstm_softmax_word_best.pt")
     softmax_model = BiLSTMTagger(
         vocab_size=len(word2id),
@@ -483,7 +473,7 @@ def main():
     softmax_state = torch.load(softmax_ckpt_path, map_location=DEVICE)["model_state_dict"]
     softmax_model.load_state_dict(softmax_state)
 
-    # 4. load CRF model
+    # load CRF model
     crf_ckpt_path = os.path.join(RESULT_DIR, "bilstm_crf_word_char_best.pt")
     crf_model = BiLSTM_CRF(
         vocab_size=len(word2id),
@@ -498,7 +488,7 @@ def main():
     crf_state = torch.load(crf_ckpt_path, map_location=DEVICE)["model_state_dict"]
     crf_model.load_state_dict(crf_state)
 
-    # 5. evaluate on test set
+    # evaluate on test set
     softmax_test_acc = evaluate(softmax_model, test_loader_word_only, model_type="softmax")
     crf_test_acc = evaluate(crf_model, test_loader_word_char, model_type="crf")
 
@@ -507,7 +497,7 @@ def main():
     print(f"BiLSTM + CRF (word + char):   {crf_test_acc:.4f}")
     print("========================\n")
 
-    # 6. demo: predict one sentence with both models
+    # predict one sentence with both models
     demo_sentence = "Barack Obama visited Berlin yesterday ."
     print("Demo sentence:", demo_sentence)
 
